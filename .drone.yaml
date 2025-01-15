@@ -1,0 +1,17 @@
+---
+kind: pipeline
+type: exec
+name: statellite
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: build
+  commands:
+    - docker build -t wojiuchigua/statellite .
+
+- name: webhook
+  commands:
+    - curl https://45.207.207.163:9443/api/stacks/webhooks/76eb97b5-8da4-40ab-a8a7-20e6790fa5eb
