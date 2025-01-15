@@ -9,6 +9,7 @@ import (
 	"net"
 	"satellite/model/motd"
 	"strconv"
+	"time"
 )
 
 // (string, int, error)
@@ -16,7 +17,7 @@ func GetMotdFromJavaVersion17(javaJson *motd.MotdJavaJson, host string, port int
 
 	buf := bytes.Buffer{}
 	resultBuf := bytes.Buffer{}
-	conn, err := net.Dial("tcp", host+":"+strconv.Itoa(port))
+	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 5*time.Second)
 	if err != nil {
 		return err
 	}
