@@ -17,7 +17,7 @@ func GetMotdFromJavaVersion17(javaJson *motd.MotdJavaJson, host string, port int
 
 	buf := bytes.Buffer{}
 	resultBuf := bytes.Buffer{}
-	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 5*time.Second)
+	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
 		return err
 	}
