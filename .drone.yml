@@ -10,7 +10,7 @@ platform:
 steps:
 - name: build
   commands:
-    - docker build -t wojiuchigua/statellite .
+    - docker build -t wojiuchigua/satellite:latest .
 
 - name: webhook
   commands:
