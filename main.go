@@ -15,7 +15,7 @@ func main() {
 		})
 	})
 	v1 := ginRouter.Group("/v1")
-	v1.POST("/motd", router.MotdHandler)
+	v1.GET("/motd", router.MotdHandler)
 	err := ginRouter.Run(":8080")
 	if err != nil {
 		log.Fatalln(err)
