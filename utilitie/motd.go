@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"satellite/model/misc"
+	"satellite/model/respon"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,45 @@ import (
 
 // OfflineMessageDataId 宏定义
 var OfflineMessageDataId = []byte{0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78}
+
+func ExtraRawRecursion(extra []misc.ExtraObjectOrString, descriptionRaw *[]respon.DescriptionRaw, depth int) {
+	for _, v := range extra {
+		result := respon.DescriptionRaw{}
+		if v.ExtraString != "" {
+			result.Text += v.ExtraString
+		}
+		if v.ExtraObject.Text != "" {
+			result.Text += v.ExtraObject.Text
+		}
+		if v.ExtraObject.Color != "" {
+			result.Color = v.ExtraObject.Color
+		}
+		if v.ExtraObject.Bold {
+			result.Bold = v.ExtraObject.Bold
+		}
+		result.Depth = depth
+		*descriptionRaw = append(*descriptionRaw, result)
+		if v.ExtraObject.Extra != nil {
+			ExtraRawRecursion(v.ExtraObject.Extra, descriptionRaw, depth+1)
+		}
+	}
+}
+
+func ExtraRecursion(extra []misc.ExtraObjectOrString) string {
+	result := ""
+	for _, v := range extra {
+		if v.ExtraString != "" {
+			result += v.ExtraString
+		}
+		if v.ExtraObject.Text != "" {
+			result += v.ExtraObject.Text
+		}
+		if v.ExtraObject.Extra != nil {
+			result += ExtraRecursion(v.ExtraObject.Extra)
+		}
+	}
+	return result
+}
 
 // GetMotdFromJavaEdition17 (string, int) error
 // 获取java版1.7及以上版本的motd
@@ -324,7 +364,7 @@ func GetMotdFromJavaEdition16(motd *misc.JavaMotd16, host string, port int, gTyp
 	return nil
 }
 
-func GetMotdFromJavaVersion13(host string, port int) error {
+func GetMotdFromJavaVersion13(motd *misc.JavaMotd13, host string, port int) error {
 	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
 		return err
@@ -338,7 +378,7 @@ func GetMotdFromJavaVersion13(host string, port int) error {
 	if err != nil {
 		return err
 	}
-	//startTime := time.Now().UnixMilli()
+	startTime := time.Now().UnixMilli()
 
 	resBuf := bufio.NewReader(conn)
 	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
@@ -346,53 +386,48 @@ func GetMotdFromJavaVersion13(host string, port int) error {
 	if err != nil {
 		return err
 	}
-	//endTime := time.Now().UnixMilli()
-	//motd.Latency = int(endTime - startTime)
+	endTime := time.Now().UnixMilli()
+	motd.Latency = int(endTime - startTime)
 
 	if bytes.Compare([]byte{firstByte}, []byte{0xFF}) != 0 {
 		return errors.New("error response packet type")
 	}
+	_, err = resBuf.Discard(4)
+	if err != nil {
+		return err
+	}
 	lengthByte := make([]byte, 2)
 	_, err = resBuf.Read(lengthByte)
-	length := 2 * binary.BigEndian.Uint16(lengthByte)
+	if err != nil {
+		return err
+	}
+	strLength := binary.BigEndian.Uint16(lengthByte)
+	data := make([]byte, strLength+10)
 
-	data := make([]byte, length)
-	for i := uint16(0); i < length; {
-		n, err := resBuf.Read(data[i:length])
+	for i := uint16(0); i < strLength+10; {
+		n, err := resBuf.Read(data[i : strLength+10])
 		if err != nil {
 			return err
 		}
 		i = i + uint16(n)
 	}
-	//data = bytes.ReplaceAll(data, []byte{0x00, 0xA7, 0x00, 0x31, 0x00, 0x00}, []byte{})
-
-	//for i, v := range bytes.Split(data, []byte{0x00, 0x00}) {
-	//	byteData := bytes.ReplaceAll(v, []byte{0x00}, []byte{})
-	//	switch i {
-	//	case 0:
-	//		motd.Protocol = string(byteData)
-	//		if err != nil {
-	//			return err
-	//		}
-	//		continue
-	//	case 1:
-	//		motd.Version = string(byteData)
-	//		continue
-	//	case 2:
-	//		motd.MessageDaily = string(byteData)
-	//		continue
-	//	case 3:
-	//		motd.OnlinePlayers, err = strconv.Atoi(string(byteData))
-	//		if err != nil {
-	//			return err
-	//		}
-	//		continue
-	//	case 4:
-	//		motd.MaxPlayers, err = strconv.Atoi(string(byteData))
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
+	motd.Motd = string(bytes.ReplaceAll(data[:strLength], []byte{0x00}, []byte{}))
+	for i, v := range bytes.Split(data[strLength+2:], []byte{0x00, 0xA7}) {
+		byteData := bytes.ReplaceAll(v, []byte{0x00}, []byte{})
+		if i == 0 {
+			motd.OnlinePlayers, err = strconv.Atoi(string(byteData))
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if i == 1 {
+			motd.MaxPlayers, err = strconv.Atoi(string(byteData))
+			if err != nil {
+				return err
+			}
+			continue
+		}
+	}
 	return nil
 }

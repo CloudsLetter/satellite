@@ -100,3 +100,10 @@ type JavaMotd16 struct {
 	MaxPlayers    int    `json:"max_players,omitempty"`
 	Latency       int    `json:"latency,omitempty"`
 }
+
+type JavaMotd13 struct {
+	Motd          string `json:"motd,omitempty"`
+	OnlinePlayers int    `json:"online_players,omitempty"`
+	MaxPlayers    int    `json:"max_players,omitempty"`
+	Latency       int    `json:"latency,omitempty"`
+}

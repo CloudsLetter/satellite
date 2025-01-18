@@ -11,45 +11,6 @@ import (
 	"strings"
 )
 
-func extraRawRecursion(extra []misc.ExtraObjectOrString, descriptionRaw *[]respon.DescriptionRaw, depth int) {
-	for _, v := range extra {
-		result := respon.DescriptionRaw{}
-		if v.ExtraString != "" {
-			result.Text += v.ExtraString
-		}
-		if v.ExtraObject.Text != "" {
-			result.Text += v.ExtraObject.Text
-		}
-		if v.ExtraObject.Color != "" {
-			result.Color = v.ExtraObject.Color
-		}
-		if v.ExtraObject.Bold {
-			result.Bold = v.ExtraObject.Bold
-		}
-		result.Depth = depth
-		*descriptionRaw = append(*descriptionRaw, result)
-		if v.ExtraObject.Extra != nil {
-			extraRawRecursion(v.ExtraObject.Extra, descriptionRaw, depth+1)
-		}
-	}
-}
-
-func extraRecursion(extra []misc.ExtraObjectOrString) string {
-	result := ""
-	for _, v := range extra {
-		if v.ExtraString != "" {
-			result += v.ExtraString
-		}
-		if v.ExtraObject.Text != "" {
-			result += v.ExtraObject.Text
-		}
-		if v.ExtraObject.Extra != nil {
-			result += extraRecursion(v.ExtraObject.Extra)
-		}
-	}
-	return result
-}
-
 func MotdHandler(ginContext *gin.Context) {
 
 	if str := ginContext.GetHeader("Accept"); str != "application/json" {
@@ -152,13 +113,13 @@ func MotdHandler(ginContext *gin.Context) {
 			comObj.Description = motdObj.Description.DescriptionObject.Text
 		}
 
-		if motdObj.Description.DescriptionString == "" && motdObj.Description.DescriptionObject.Text == "" {
+		if motdObj.Description.DescriptionString == "" && motdObj.Description.DescriptionObject.Text == "" && motdObj.Description.DescriptionObject.ExtraObj != nil {
 			if reqObj.DesRaw {
 				var descriptionRaw []respon.DescriptionRaw
-				extraRawRecursion(motdObj.Description.DescriptionObject.ExtraObj, &descriptionRaw, 0)
+				utilitie.ExtraRawRecursion(motdObj.Description.DescriptionObject.ExtraObj, &descriptionRaw, 0)
 				comObj.DescriptionRaw = descriptionRaw
 			} else {
-				comObj.Description = extraRecursion(motdObj.Description.DescriptionObject.ExtraObj)
+				comObj.Description = utilitie.ExtraRecursion(motdObj.Description.DescriptionObject.ExtraObj)
 			}
 		}
 
@@ -184,7 +145,6 @@ func MotdHandler(ginContext *gin.Context) {
 						continue
 					}
 				}
-
 				comObj.Players = append(comObj.Players, misc.Sample{
 					Name: v.Name,
 					Id:   v.Id,
@@ -248,7 +208,24 @@ func MotdHandler(ginContext *gin.Context) {
 	}
 
 	if reqObj.Type == 4 {
-
+		motdObj := misc.JavaMotd13{}
+		err = utilitie.GetMotdFromJavaVersion13(&motdObj, reqObj.Host, reqObj.Port)
+		if err != nil {
+			ginContext.JSON(http.StatusBadRequest, gin.H{
+				"message": "server offline",
+			})
+			return
+		}
+		if reqObj.Raw {
+			motdObj.Latency = 0
+			ginContext.JSON(http.StatusOK, motdObj)
+			return
+		}
+		comObj.Description = motdObj.Motd
+		comObj.OnlinePlayers = motdObj.OnlinePlayers
+		comObj.MaxPlayers = motdObj.MaxPlayers
+		comObj.Latency = motdObj.Latency
+		comObj.Edition = "java"
 	}
 
 	if reqObj.Type > 4 {
