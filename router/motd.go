@@ -11,6 +11,45 @@ import (
 	"strings"
 )
 
+func extraRawRecursion(extra []misc.ExtraObjectOrString, descriptionRaw *[]respon.DescriptionRaw, depth int) {
+	for _, v := range extra {
+		result := respon.DescriptionRaw{}
+		if v.ExtraString != "" {
+			result.Text += v.ExtraString
+		}
+		if v.ExtraObject.Text != "" {
+			result.Text += v.ExtraObject.Text
+		}
+		if v.ExtraObject.Color != "" {
+			result.Color = v.ExtraObject.Color
+		}
+		if v.ExtraObject.Bold {
+			result.Bold = v.ExtraObject.Bold
+		}
+		result.Depth = depth
+		*descriptionRaw = append(*descriptionRaw, result)
+		if v.ExtraObject.Extra != nil {
+			extraRawRecursion(v.ExtraObject.Extra, descriptionRaw, depth+1)
+		}
+	}
+}
+
+func extraRecursion(extra []misc.ExtraObjectOrString) string {
+	result := ""
+	for _, v := range extra {
+		if v.ExtraString != "" {
+			result += v.ExtraString
+		}
+		if v.ExtraObject.Text != "" {
+			result += v.ExtraObject.Text
+		}
+		if v.ExtraObject.Extra != nil {
+			result += extraRecursion(v.ExtraObject.Extra)
+		}
+	}
+	return result
+}
+
 func MotdHandler(ginContext *gin.Context) {
 
 	if str := ginContext.GetHeader("Accept"); str != "application/json" {
@@ -19,9 +58,9 @@ func MotdHandler(ginContext *gin.Context) {
 		})
 		return
 	}
-	motdObj := request.MotdRequest{}
+	reqObj := request.MotdRequest{}
 
-	motdObj.Host = ginContext.Query("host")
+	reqObj.Host = ginContext.Query("host")
 	port, err := strconv.Atoi(ginContext.Query("port"))
 	if err != nil {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
@@ -36,55 +75,96 @@ func MotdHandler(ginContext *gin.Context) {
 		})
 		return
 	}
-	motdObj.Port = port
-	motdObj.Type = gType
-
-	if motdObj.Host == "" || motdObj.Port == 0 {
+	raw, err := strconv.ParseBool(ginContext.Query("raw"))
+	if err != nil {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
-			"message": "missing required fields",
+			"message": "illegal input",
 		})
 		return
 	}
-
-	if strings.ContainsRune(motdObj.Host, ':') {
+	desRaw, err := strconv.ParseBool(ginContext.Query("desraw"))
+	if err != nil {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
 			"message": "illegal input",
 		})
 		return
 	}
 
-	jsonObj := misc.MotdJson{}
+	anonymous, err := strconv.ParseBool(ginContext.Query("anonymous"))
+	if err != nil {
+		ginContext.JSON(http.StatusBadRequest, gin.H{
+			"message": "illegal input",
+		})
+		return
+	}
+	reqObj.Port = port
+	reqObj.Type = gType
+	reqObj.Raw = raw
+	reqObj.DesRaw = desRaw
+	reqObj.Anonymous = anonymous
+	if reqObj.Host == "" || reqObj.Port == 0 {
+		ginContext.JSON(http.StatusBadRequest, gin.H{
+			"message": "missing required fields",
+		})
+		return
+	}
+
+	if strings.ContainsRune(reqObj.Host, ':') {
+		ginContext.JSON(http.StatusBadRequest, gin.H{
+			"message": "illegal input",
+		})
+		return
+	}
+
 	comObj := respon.MotdResponse{}
-	if motdObj.Type == 0 {
-		err := utilitie.GetMotdFromJavaEdition17(&jsonObj, motdObj.Host, motdObj.Port)
+	if reqObj.Type == 0 {
+		motdObj := misc.JavaMotdJson17{}
+		err = utilitie.GetMotdFromJavaEdition17(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
 			ginContext.JSON(http.StatusInternalServerError, gin.H{
-				"message": "server offline or internal server error",
+				"message": "server offline",
 			})
 			return
 		}
+		if reqObj.Raw {
+			motdObj.Latency = 0
+			ginContext.JSON(http.StatusOK, motdObj)
+			return
+		}
 		comObj = respon.MotdResponse{
-			MineCraftEdition:    jsonObj.Version.Name,
-			OnlinePlayers:       jsonObj.Players.Online,
-			MaxPlayers:          jsonObj.Players.Max,
-			Description:         jsonObj.Description.Text,
-			Favicon:             jsonObj.Favicon,
-			Protocol:            strconv.Itoa(jsonObj.Version.Protocol),
-			Loader:              jsonObj.Modinfo.Type,
-			ModCount:            len(jsonObj.Modinfo.ModList),
-			EnforcesSecureChat:  jsonObj.EnforcesSecureChat,
-			PreventsChatReports: jsonObj.PreventsChatReports,
+			MineCraftEdition:    motdObj.Version.Name,
+			OnlinePlayers:       motdObj.Players.Online,
+			MaxPlayers:          motdObj.Players.Max,
+			Favicon:             motdObj.Favicon,
+			Protocol:            strconv.Itoa(motdObj.Version.Protocol),
+			Loader:              motdObj.Modinfo.Type,
+			ModCount:            len(motdObj.Modinfo.ModList),
+			EnforcesSecureChat:  motdObj.EnforcesSecureChat,
+			PreventsChatReports: motdObj.PreventsChatReports,
+			Latency:             motdObj.Latency,
 		}
 		comObj.Edition = "java"
-		if comObj.Description == "" {
-			for _, v := range jsonObj.Description.Extra {
-				comObj.Description += v.Text
+
+		if motdObj.Description.DescriptionString != "" {
+			comObj.Description = motdObj.Description.DescriptionString
+		}
+		if motdObj.Description.DescriptionObject.Text != "" {
+			comObj.Description = motdObj.Description.DescriptionObject.Text
+		}
+
+		if motdObj.Description.DescriptionString == "" && motdObj.Description.DescriptionObject.Text == "" {
+			if reqObj.DesRaw {
+				var descriptionRaw []respon.DescriptionRaw
+				extraRawRecursion(motdObj.Description.DescriptionObject.ExtraObj, &descriptionRaw, 0)
+				comObj.DescriptionRaw = descriptionRaw
+			} else {
+				comObj.Description = extraRecursion(motdObj.Description.DescriptionObject.ExtraObj)
 			}
 		}
 
-		if jsonObj.Version.Protocol == -1 && jsonObj.Version.SupportedVersions != nil {
+		if motdObj.Version.Protocol == -1 && motdObj.Version.SupportedVersions != nil {
 			comObj.Protocol = ""
-			for i, v := range jsonObj.Version.SupportedVersions {
+			for i, v := range motdObj.Version.SupportedVersions {
 				if i == 0 {
 					comObj.Protocol += strconv.Itoa(v)
 					continue
@@ -94,14 +174,17 @@ func MotdHandler(ginContext *gin.Context) {
 			}
 		}
 
-		if jsonObj.Players.Sample != nil {
-			for i, v := range jsonObj.Players.Sample {
+		if motdObj.Players.Sample != nil {
+			for i, v := range motdObj.Players.Sample {
 				//if i >= 10 {
 				//	break
 				//}
-				//if v.Id == "00000000-0000-0000-0000-000000000000" {
-				//	continue
-				//}
+				if reqObj.Anonymous {
+					if v.Id == "00000000-0000-0000-0000-000000000000" {
+						continue
+					}
+				}
+
 				comObj.Players = append(comObj.Players, misc.Sample{
 					Name: v.Name,
 					Id:   v.Id,
@@ -110,31 +193,65 @@ func MotdHandler(ginContext *gin.Context) {
 			}
 		}
 	}
-	if motdObj.Type == 1 {
-		beData, err := utilitie.GetMotdFromBedrockEdition(motdObj.Host, motdObj.Port)
+	if reqObj.Type == 1 {
+		motdObj := misc.BedrockMotd{}
+		err = utilitie.GetMotdFromBedrockEdition(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
 			ginContext.JSON(http.StatusBadRequest, gin.H{
-				"message": "server offline or internal server error",
+				"message": "server offline",
 			})
+			return
 		}
-		comObj.MineCraftServerType = beData[0]
-		comObj.ServerName = beData[1]
-		comObj.Protocol = beData[2]
-		comObj.Version = beData[3]
-		comObj.OnlinePlayers, _ = strconv.Atoi(beData[4])
-		comObj.MaxPlayers, _ = strconv.Atoi(beData[5])
-		comObj.ServerId, _ = strconv.ParseInt(beData[6], 10, 64)
-		comObj.Map = beData[7]
-		comObj.GameMode = beData[8]
-		comObj.NintendoLimited, _ = strconv.ParseBool(beData[9])
-		comObj.Ipv4Port, _ = strconv.Atoi(beData[10])
-		comObj.Ipv6Port, _ = strconv.Atoi(beData[11])
-		comObj.Extra = beData[12]
+		if reqObj.Raw {
+			motdObj.Latency = 0
+			ginContext.JSON(http.StatusOK, motdObj)
+			return
+		}
+		comObj.MineCraftServerType = motdObj.GameName
+		comObj.ServerName = motdObj.HostName
+		comObj.Protocol = motdObj.Protocol
+		comObj.Version = motdObj.Version
+		comObj.OnlinePlayers = motdObj.Players
+		comObj.MaxPlayers = motdObj.MaxPlayers
+		comObj.ServerId = motdObj.ServerId
+		comObj.Map = motdObj.Map
+		comObj.GameMode = motdObj.GameMode
+		comObj.NintendoLimited = motdObj.NintendoLimited
+		comObj.Ipv4Port = motdObj.IPv4Port
+		comObj.Ipv6Port = motdObj.IPv6Port
+		comObj.Extra = motdObj.Extra
 		comObj.Edition = "bedrock"
+		comObj.Latency = motdObj.Latency
+	}
+
+	if reqObj.Type == 2 || reqObj.Type == 3 {
+		motdObj := misc.JavaMotd16{}
+		err = utilitie.GetMotdFromJavaEdition16(&motdObj, reqObj.Host, reqObj.Port, reqObj.Type)
+		if err != nil {
+			ginContext.JSON(http.StatusBadRequest, gin.H{
+				"message": "server offline",
+			})
+			return
+		}
+		if reqObj.Raw {
+			motdObj.Latency = 0
+			ginContext.JSON(http.StatusOK, motdObj)
+			return
+		}
+		comObj.Protocol = motdObj.Protocol
+		comObj.Version = motdObj.Version
+		comObj.Description = motdObj.MessageDaily
+		comObj.OnlinePlayers = motdObj.OnlinePlayers
+		comObj.MaxPlayers = motdObj.MaxPlayers
+		comObj.Latency = motdObj.Latency
+		comObj.Edition = "java"
+	}
+
+	if reqObj.Type == 4 {
 
 	}
 
-	if motdObj.Type != 0 && motdObj.Type != 1 {
+	if reqObj.Type > 4 {
 		ginContext.JSON(http.StatusOK, gin.H{
 			"message": "type not support",
 		})

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"log"
 	"net"
 	"satellite/model/misc"
 	"strconv"
@@ -18,15 +19,15 @@ var OfflineMessageDataId = []byte{0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE
 
 // GetMotdFromJavaEdition17 (string, int) error
 // 获取java版1.7及以上版本的motd
-func GetMotdFromJavaEdition17(javaJson *misc.MotdJson, host string, port int) error {
+func GetMotdFromJavaEdition17(motd *misc.JavaMotdJson17, host string, port int) error {
 
 	buf := bytes.Buffer{}
 	resultBuf := bytes.Buffer{}
 	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
-
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	// 写入包id
 	buf.Write([]byte{0x00})
 	// 写入请求协议版本
@@ -50,6 +51,8 @@ func GetMotdFromJavaEdition17(javaJson *misc.MotdJson, host string, port int) er
 	if err != nil {
 		return err
 	}
+	startTime := time.Now().UnixMilli()
+
 	_, err = conn.Write([]byte{0x01, 0x00})
 	if err != nil {
 		return err
@@ -65,7 +68,8 @@ func GetMotdFromJavaEdition17(javaJson *misc.MotdJson, host string, port int) er
 	if err != nil {
 		return err
 	}
-
+	endTime := time.Now().UnixMilli()
+	motd.Latency = int(endTime - startTime)
 	packetType, _ := resBuf.ReadByte()
 	if bytes.Compare([]byte{packetType}, []byte{0x00}) != 0 {
 		panic("error response packet type")
@@ -82,12 +86,9 @@ func GetMotdFromJavaEdition17(javaJson *misc.MotdJson, host string, port int) er
 		n, _ := resBuf.Read(recBytes[i:length])
 		i = i + uint64(n)
 	}
-	str := string(recBytes)
-	str = strings.ReplaceAll(str, "\"\\n\",", "")
-	str = strings.ReplaceAll(str, "\"\\r\",", "")
-	str = strings.ReplaceAll(str, ",\" \",", ",")
-	err = json.Unmarshal([]byte(str), &javaJson)
+	err = json.Unmarshal(recBytes, &motd)
 	if err != nil {
+		log.Fatalln(err.Error())
 		return err
 	}
 	return nil
@@ -95,13 +96,13 @@ func GetMotdFromJavaEdition17(javaJson *misc.MotdJson, host string, port int) er
 
 // GetMotdFromBedrockEdition (string, int) error
 // 获取基岩版的motd
-func GetMotdFromBedrockEdition(host string, port int) ([]string, error) {
+func GetMotdFromBedrockEdition(motd *misc.BedrockMotd, host string, port int) error {
 	originBuf := bytes.Buffer{}
 	conn, err := net.DialTimeout("udp", host+":"+strconv.Itoa(port), 1*time.Second)
-
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer conn.Close()
 	// 写入包id
 	originBuf.Write([]byte{0x01})
 	timeBuf := make([]byte, 8)
@@ -116,83 +117,282 @@ func GetMotdFromBedrockEdition(host string, port int) ([]string, error) {
 	originBuf.Write(guidBuf)
 	_, err = conn.Write(originBuf.Bytes())
 	if err != nil {
-		return nil, err
+		return err
 	}
+	startTime := time.Now().UnixMilli()
 	resBuf := bufio.NewReader(conn)
 	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	firstByte, _ := resBuf.ReadByte()
 	if bytes.Compare([]byte{firstByte}, []byte{0x1C}) != 0 {
-		return nil, errors.New("error response packet type")
+		return errors.New("error response packet type")
 	}
+	endTime := time.Now().UnixMilli()
+	motd.Latency = int(endTime - startTime)
 	//丢 18 byte数据
 	_, err = resBuf.Discard(16)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	offliemsg := make([]byte, 16)
-	_, err = resBuf.Read(offliemsg)
+	offlineMsg := make([]byte, 16)
+	_, err = resBuf.Read(offlineMsg)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if bytes.Compare(offliemsg, OfflineMessageDataId) != 0 {
-		return nil, errors.New("error response packet type")
+	if bytes.Compare(offlineMsg, OfflineMessageDataId) != 0 {
+		return errors.New("error response packet type")
 	}
 	length := make([]byte, 2)
 	_, err = resBuf.Read(length)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	lengthR := binary.BigEndian.Uint16(length)
 
-	data := make([]byte, binary.BigEndian.Uint16(length))
+	data := make([]byte, lengthR)
 
-	for i := 0; i < int(binary.BigEndian.Uint16(length)); {
-		n, err := resBuf.Read(data[i:int(binary.BigEndian.Uint16(length))])
+	for i := uint16(0); i < lengthR; {
+		n, err := resBuf.Read(data[i:lengthR])
 		if err != nil {
-			return nil, err
+			return err
 		}
-		i = i + n
+		i = i + uint16(n)
 	}
-	return strings.Split(string(data), ";"), nil
+	for i, v := range strings.Split(string(data), ";") {
+		switch i {
+		case 0:
+			motd.GameName = v
+			continue
+		case 1:
+			motd.HostName = v
+			continue
+		case 2:
+			motd.Protocol = v
+			continue
+		case 3:
+			motd.Version = v
+			continue
+		case 4:
+			motd.Players, err = strconv.Atoi(v)
+			if err != nil {
+				return err
+			}
+			continue
+		case 5:
+			motd.MaxPlayers, err = strconv.Atoi(v)
+			if err != nil {
+				return err
+			}
+			continue
+		case 6:
+			motd.ServerId, err = strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return err
+			}
+			continue
+		case 7:
+			motd.Map = v
+			continue
+		case 8:
+			motd.GameMode = v
+			continue
+		case 9:
+			motd.NintendoLimited, err = strconv.ParseBool(v)
+			if err != nil {
+				return err
+			}
+			continue
+		case 10:
+			motd.IPv4Port, err = strconv.Atoi(v)
+			if err != nil {
+				return err
+			}
+			continue
+		case 11:
+			motd.IPv6Port, err = strconv.Atoi(v)
+			if err != nil {
+				return err
+			}
+			continue
+		case 12:
+			motd.Extra = v
+			continue
+		}
+	}
+	return nil
 }
 
-//func GetMotdFromJavaVersion16(host string, port int) {
-//	conn, _ := net.Dial("tcp", host+":"+strconv.Itoa(port))
-//	buf := bytes.Buffer{}
-//	newbuf := bytes.Buffer{}
-//	buf.Write([]byte{0xFE, 0x01, 0xFA})
-//	newbuf.Write(append([]byte{uint8(buf.Len())}, buf.Bytes()...))
-//	conn.Write(newbuf.Bytes())
-//	resBuf := bufio.NewReader(conn)
-//	resbuf := make([]byte, 512)
-//	resBuf.Read(resbuf)
-//	log.Fatalln(resbuf)
-//}
-//
-//func GetMotdFromJavaVersion14(host string, port int) {
-//	conn, _ := net.Dial("tcp", host+":"+strconv.Itoa(port))
-//	buf := bytes.Buffer{}
-//	newbuf := bytes.Buffer{}
-//	buf.Write([]byte{0xFE, 0x01})
-//	newbuf.Write(append([]byte{uint8(buf.Len())}, buf.Bytes()...))
-//	conn.Write(newbuf.Bytes())
-//	resBuf := bufio.NewReader(conn)
-//	resbuf := make([]byte, 512)
-//	resBuf.Read(resbuf)
-//	log.Fatalln(resbuf)
-//}
-//
-//func GetMotdFromJavaVersion13(host string, port int) {
-//	conn, _ := net.Dial("tcp", host+":"+strconv.Itoa(port))
-//	buf := bytes.Buffer{}
-//	newbuf := bytes.Buffer{}
-//	buf.Write([]byte{0xFE})
-//	newbuf.Write(append([]byte{uint8(buf.Len())}, buf.Bytes()...))
-//	conn.Write(newbuf.Bytes())
-//	resBuf := bufio.NewReader(conn)
-//	resbuf := make([]byte, 512)
-//	resBuf.Read(resbuf)
-//	log.Fatalln(resbuf)
-//}
+func GetMotdFromJavaEdition16(motd *misc.JavaMotd16, host string, port int, gType int) error {
+
+	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	buf := bytes.Buffer{}
+	if gType == 2 {
+		// 写入包id
+		buf.Write([]byte{0xFE, 0x01, 0xFA})
+		// 写入包长度
+		buf.Write([]byte{0x00, 0x0B})
+		// 写入 MC|PingHost 字符串
+		buf.Write([]byte{0x00, 0x4D, 0x00, 0x43, 0x00, 0x7C, 0x00, 0x50, 0x00, 0x69, 0x00, 0x6E, 0x00, 0x67, 0x00, 0x48, 0x00, 0x6F, 0x00, 0x73, 0x00, 0x74})
+		hostLen := make([]byte, 2)
+		binary.BigEndian.PutUint16(hostLen, 7+uint16(len(host)))
+		// 写入其余数据长度
+		buf.Write(hostLen)
+		// 写入协议版本
+		buf.Write([]byte{0x4A})
+		hostLen = make([]byte, 2)
+		binary.BigEndian.PutUint16(hostLen, uint16(len(host)))
+		// 写入host长度
+		buf.Write(hostLen)
+		// 写入host
+		buf.Write([]byte(host))
+		portByte := make([]byte, 4)
+		binary.BigEndian.PutUint32(portByte, uint32(port))
+		buf.Write(portByte)
+	}
+
+	if gType == 3 {
+		buf.Write([]byte{0xFE, 0x01})
+	}
+
+	_, err = conn.Write(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	startTime := time.Now().UnixMilli()
+
+	resBuf := bufio.NewReader(conn)
+	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	firstByte, err := resBuf.ReadByte()
+	if err != nil {
+		return err
+	}
+	endTime := time.Now().UnixMilli()
+	motd.Latency = int(endTime - startTime)
+
+	if bytes.Compare([]byte{firstByte}, []byte{0xFF}) != 0 {
+		return errors.New("error response packet type")
+	}
+	lengthByte := make([]byte, 2)
+	_, err = resBuf.Read(lengthByte)
+	length := 2 * binary.BigEndian.Uint16(lengthByte)
+
+	data := make([]byte, length)
+	for i := uint16(0); i < length; {
+		n, err := resBuf.Read(data[i:length])
+		if err != nil {
+			return err
+		}
+		i = i + uint16(n)
+	}
+	data = bytes.ReplaceAll(data, []byte{0x00, 0xA7, 0x00, 0x31, 0x00, 0x00}, []byte{})
+
+	for i, v := range bytes.Split(data, []byte{0x00, 0x00}) {
+		byteData := bytes.ReplaceAll(v, []byte{0x00}, []byte{})
+		switch i {
+		case 0:
+			motd.Protocol = string(byteData)
+			if err != nil {
+				return err
+			}
+			continue
+		case 1:
+			motd.Version = string(byteData)
+			continue
+		case 2:
+			motd.MessageDaily = string(byteData)
+			continue
+		case 3:
+			motd.OnlinePlayers, err = strconv.Atoi(string(byteData))
+			if err != nil {
+				return err
+			}
+			continue
+		case 4:
+			motd.MaxPlayers, err = strconv.Atoi(string(byteData))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func GetMotdFromJavaVersion13(host string, port int) error {
+	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	buf := bytes.Buffer{}
+	// 写入包id
+	buf.Write([]byte{0xFE})
+	_, err = conn.Write(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	//startTime := time.Now().UnixMilli()
+
+	resBuf := bufio.NewReader(conn)
+	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	firstByte, err := resBuf.ReadByte()
+	if err != nil {
+		return err
+	}
+	//endTime := time.Now().UnixMilli()
+	//motd.Latency = int(endTime - startTime)
+
+	if bytes.Compare([]byte{firstByte}, []byte{0xFF}) != 0 {
+		return errors.New("error response packet type")
+	}
+	lengthByte := make([]byte, 2)
+	_, err = resBuf.Read(lengthByte)
+	length := 2 * binary.BigEndian.Uint16(lengthByte)
+
+	data := make([]byte, length)
+	for i := uint16(0); i < length; {
+		n, err := resBuf.Read(data[i:length])
+		if err != nil {
+			return err
+		}
+		i = i + uint16(n)
+	}
+	//data = bytes.ReplaceAll(data, []byte{0x00, 0xA7, 0x00, 0x31, 0x00, 0x00}, []byte{})
+
+	//for i, v := range bytes.Split(data, []byte{0x00, 0x00}) {
+	//	byteData := bytes.ReplaceAll(v, []byte{0x00}, []byte{})
+	//	switch i {
+	//	case 0:
+	//		motd.Protocol = string(byteData)
+	//		if err != nil {
+	//			return err
+	//		}
+	//		continue
+	//	case 1:
+	//		motd.Version = string(byteData)
+	//		continue
+	//	case 2:
+	//		motd.MessageDaily = string(byteData)
+	//		continue
+	//	case 3:
+	//		motd.OnlinePlayers, err = strconv.Atoi(string(byteData))
+	//		if err != nil {
+	//			return err
+	//		}
+	//		continue
+	//	case 4:
+	//		motd.MaxPlayers, err = strconv.Atoi(string(byteData))
+	//		if err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
+	return nil
+}
