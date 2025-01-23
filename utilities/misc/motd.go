@@ -1,4 +1,4 @@
-package utilitie
+package misc
 
 import (
 	"bufio"
@@ -8,8 +8,8 @@ import (
 	"errors"
 	"log"
 	"net"
-	"satellite/model/misc"
-	"satellite/model/respon"
+	"satellite/models/minecraft"
+	"satellite/models/respon"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +18,7 @@ import (
 // OfflineMessageDataId 宏定义
 var OfflineMessageDataId = []byte{0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78}
 
-func ExtraRawRecursion(extra []misc.ExtraObjectOrString, descriptionRaw *[]respon.DescriptionRaw, depth int) {
+func ExtraRawRecursion(extra []minecraft.ExtraObjectOrString, descriptionRaw *[]respon.DescriptionRaw, depth int) {
 	for _, v := range extra {
 		result := respon.DescriptionRaw{}
 		if v.ExtraString != "" {
@@ -41,7 +41,7 @@ func ExtraRawRecursion(extra []misc.ExtraObjectOrString, descriptionRaw *[]respo
 	}
 }
 
-func ExtraRecursion(extra []misc.ExtraObjectOrString) string {
+func ExtraRecursion(extra []minecraft.ExtraObjectOrString) string {
 	result := ""
 	for _, v := range extra {
 		if v.ExtraString != "" {
@@ -59,7 +59,7 @@ func ExtraRecursion(extra []misc.ExtraObjectOrString) string {
 
 // GetMotdFromJavaEdition17 (string, int) error
 // 获取java版1.7及以上版本的motd
-func GetMotdFromJavaEdition17(motd *misc.JavaMotdJson17, host string, port int) error {
+func GetMotdFromJavaEdition17(motd *minecraft.JavaMotdJson17, host string, port int) error {
 
 	buf := bytes.Buffer{}
 	resultBuf := bytes.Buffer{}
@@ -136,7 +136,7 @@ func GetMotdFromJavaEdition17(motd *misc.JavaMotdJson17, host string, port int) 
 
 // GetMotdFromBedrockEdition (string, int) error
 // 获取基岩版的motd
-func GetMotdFromBedrockEdition(motd *misc.BedrockMotd, host string, port int) error {
+func GetMotdFromBedrockEdition(motd *minecraft.BedrockMotd, host string, port int) error {
 	originBuf := bytes.Buffer{}
 	conn, err := net.DialTimeout("udp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
@@ -264,7 +264,7 @@ func GetMotdFromBedrockEdition(motd *misc.BedrockMotd, host string, port int) er
 	return nil
 }
 
-func GetMotdFromJavaEdition16(motd *misc.JavaMotd16, host string, port int, gType int) error {
+func GetMotdFromJavaEdition16(motd *minecraft.JavaMotd16, host string, port int, gType int) error {
 
 	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
@@ -364,7 +364,7 @@ func GetMotdFromJavaEdition16(motd *misc.JavaMotd16, host string, port int, gTyp
 	return nil
 }
 
-func GetMotdFromJavaVersion13(motd *misc.JavaMotd13, host string, port int) error {
+func GetMotdFromJavaVersion13(motd *minecraft.JavaMotd13, host string, port int) error {
 	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
 		return err

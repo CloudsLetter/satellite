@@ -1,4 +1,4 @@
-package misc
+package minecraft
 
 import (
 	"encoding/json"

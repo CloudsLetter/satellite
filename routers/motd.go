@@ -1,18 +1,17 @@
-package router
+package routers
 
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"satellite/model/misc"
-	"satellite/model/request"
-	"satellite/model/respon"
-	"satellite/utilitie"
+	"satellite/models/minecraft"
+	"satellite/models/request"
+	"satellite/models/respon"
+	"satellite/utilities/misc"
 	"strconv"
 	"strings"
 )
 
 func MotdHandler(ginContext *gin.Context) {
-
 	if str := ginContext.GetHeader("Accept"); str != "application/json" {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
 			"message": "allow application/json only",
@@ -79,8 +78,8 @@ func MotdHandler(ginContext *gin.Context) {
 
 	comObj := respon.MotdResponse{}
 	if reqObj.Type == 0 {
-		motdObj := misc.JavaMotdJson17{}
-		err = utilitie.GetMotdFromJavaEdition17(&motdObj, reqObj.Host, reqObj.Port)
+		motdObj := minecraft.JavaMotdJson17{}
+		err = misc.GetMotdFromJavaEdition17(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
 			ginContext.JSON(http.StatusInternalServerError, gin.H{
 				"message": "server offline",
@@ -116,10 +115,10 @@ func MotdHandler(ginContext *gin.Context) {
 		if motdObj.Description.DescriptionString == "" && motdObj.Description.DescriptionObject.Text == "" && motdObj.Description.DescriptionObject.ExtraObj != nil {
 			if reqObj.DesRaw {
 				var descriptionRaw []respon.DescriptionRaw
-				utilitie.ExtraRawRecursion(motdObj.Description.DescriptionObject.ExtraObj, &descriptionRaw, 0)
+				misc.ExtraRawRecursion(motdObj.Description.DescriptionObject.ExtraObj, &descriptionRaw, 0)
 				comObj.DescriptionRaw = descriptionRaw
 			} else {
-				comObj.Description = utilitie.ExtraRecursion(motdObj.Description.DescriptionObject.ExtraObj)
+				comObj.Description = misc.ExtraRecursion(motdObj.Description.DescriptionObject.ExtraObj)
 			}
 		}
 
@@ -145,7 +144,7 @@ func MotdHandler(ginContext *gin.Context) {
 						continue
 					}
 				}
-				comObj.Players = append(comObj.Players, misc.Sample{
+				comObj.Players = append(comObj.Players, minecraft.Sample{
 					Name: v.Name,
 					Id:   v.Id,
 				})
@@ -154,8 +153,8 @@ func MotdHandler(ginContext *gin.Context) {
 		}
 	}
 	if reqObj.Type == 1 {
-		motdObj := misc.BedrockMotd{}
-		err = utilitie.GetMotdFromBedrockEdition(&motdObj, reqObj.Host, reqObj.Port)
+		motdObj := minecraft.BedrockMotd{}
+		err = misc.GetMotdFromBedrockEdition(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
 			ginContext.JSON(http.StatusBadRequest, gin.H{
 				"message": "server offline",
@@ -185,8 +184,8 @@ func MotdHandler(ginContext *gin.Context) {
 	}
 
 	if reqObj.Type == 2 || reqObj.Type == 3 {
-		motdObj := misc.JavaMotd16{}
-		err = utilitie.GetMotdFromJavaEdition16(&motdObj, reqObj.Host, reqObj.Port, reqObj.Type)
+		motdObj := minecraft.JavaMotd16{}
+		err = misc.GetMotdFromJavaEdition16(&motdObj, reqObj.Host, reqObj.Port, reqObj.Type)
 		if err != nil {
 			ginContext.JSON(http.StatusBadRequest, gin.H{
 				"message": "server offline",
@@ -208,8 +207,8 @@ func MotdHandler(ginContext *gin.Context) {
 	}
 
 	if reqObj.Type == 4 {
-		motdObj := misc.JavaMotd13{}
-		err = utilitie.GetMotdFromJavaVersion13(&motdObj, reqObj.Host, reqObj.Port)
+		motdObj := minecraft.JavaMotd13{}
+		err = misc.GetMotdFromJavaVersion13(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
 			ginContext.JSON(http.StatusBadRequest, gin.H{
 				"message": "server offline",
