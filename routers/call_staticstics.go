@@ -1,6 +1,8 @@
 package routers
 
 import (
+	"github.com/getsentry/sentry-go"
+	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"satellite/models/db"
@@ -27,6 +29,14 @@ func CallStatisticsHandler(ginContext *gin.Context) {
 	if destination == "motd" {
 		destination = "/v1/motd"
 	}
+
+	hub := sentrygin.GetHubFromContext(ginContext)
+	if hub == nil {
+		ginContext.JSON(http.StatusInternalServerError, gin.H{
+			"message": "internal error",
+		})
+		return
+	}
 	var resObj []respon.CallStatistics
 	today := time.Now()
 	firstDay := today.AddDate(0, 0, -day)
@@ -36,6 +46,10 @@ func CallStatisticsHandler(ginContext *gin.Context) {
 		tmpObj.Month = int(today.Month())
 		err = database.GetDBContext().Model(&db.CallsStatistics{}).Where("day = ? and destination = ?", today.Day(), destination).Count(&tmpObj.Calls).Error
 		if err != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("CallStatistics", "today")
+				hub.CaptureException(err)
+			})
 			ginContext.JSON(http.StatusInternalServerError, gin.H{
 				"message": "internal error",
 			})
@@ -53,6 +67,10 @@ func CallStatisticsHandler(ginContext *gin.Context) {
 		tmpObj.Month = int(i.Month())
 		err = database.GetDBContext().Model(&db.CallsStatistics{}).Where("day = ? AND destination = ?", i.Day(), destination).Count(&tmpObj.Calls).Error
 		if err != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("CallStatistics", "?day")
+				hub.CaptureException(err)
+			})
 			ginContext.JSON(http.StatusInternalServerError, gin.H{
 				"message": "internal error",
 			})

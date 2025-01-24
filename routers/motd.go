@@ -1,6 +1,8 @@
 package routers
 
 import (
+	"github.com/getsentry/sentry-go"
+	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"satellite/models/minecraft"
@@ -76,11 +78,23 @@ func MotdHandler(ginContext *gin.Context) {
 		return
 	}
 
+	hub := sentrygin.GetHubFromContext(ginContext)
+	if hub == nil {
+		ginContext.JSON(http.StatusInternalServerError, gin.H{
+			"message": "internal error",
+		})
+		return
+	}
+
 	comObj := respon.MotdResponse{}
 	if reqObj.Type == 0 {
 		motdObj := minecraft.JavaMotdJson17{}
 		err = misc.GetMotdFromJavaEdition17(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("motd", "java17")
+				hub.CaptureException(err)
+			})
 			ginContext.JSON(http.StatusInternalServerError, gin.H{
 				"message": "server offline",
 			})
@@ -156,6 +170,10 @@ func MotdHandler(ginContext *gin.Context) {
 		motdObj := minecraft.BedrockMotd{}
 		err = misc.GetMotdFromBedrockEdition(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("motd", "bedrock")
+				hub.CaptureException(err)
+			})
 			ginContext.JSON(http.StatusBadRequest, gin.H{
 				"message": "server offline",
 			})
@@ -187,6 +205,10 @@ func MotdHandler(ginContext *gin.Context) {
 		motdObj := minecraft.JavaMotd16{}
 		err = misc.GetMotdFromJavaEdition16(&motdObj, reqObj.Host, reqObj.Port, reqObj.Type)
 		if err != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("motd", "java16")
+				hub.CaptureException(err)
+			})
 			ginContext.JSON(http.StatusBadRequest, gin.H{
 				"message": "server offline",
 			})
@@ -210,6 +232,10 @@ func MotdHandler(ginContext *gin.Context) {
 		motdObj := minecraft.JavaMotd13{}
 		err = misc.GetMotdFromJavaVersion13(&motdObj, reqObj.Host, reqObj.Port)
 		if err != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("motd", "java13")
+				hub.CaptureException(err)
+			})
 			ginContext.JSON(http.StatusBadRequest, gin.H{
 				"message": "server offline",
 			})

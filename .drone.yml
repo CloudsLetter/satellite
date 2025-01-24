@@ -12,6 +12,7 @@ steps:
   commands:
     - docker build -t wojiuchigua/satellite:latest .
 
+
 - name: webhook
   commands:
     - curl -X POST -k https://127.0.0.1:9443/api/stacks/webhooks/5f385d8d-8d21-46d8-9cb0-f6baa6f8d941

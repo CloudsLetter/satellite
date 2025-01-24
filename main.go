@@ -1,31 +1,29 @@
 package main
 
 import (
+	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
-	"runtime"
 	"satellite/middlewares"
 	"satellite/routers"
-	"satellite/utilities/database"
+	"satellite/utilities"
 )
 
 func main() {
+	utilities.InitFunc()
 
-	if runtime.GOOS == "windows" {
-		database.InitDB("host=127.0.0.1 user=postgres password=88323095.zxc dbname=satellitetmp port=5432 sslmode=disable TimeZone=Asia/Shanghai")
-	} else {
-		database.InitDB("host=postgres user=postgres password=88323095.zxc dbname=satellite port=5432 sslmode=disable TimeZone=Asia/Shanghai")
-	}
-	database.AutoMigrate(database.GetDBContext())
-	for i := 0; i < 3; i++ {
-		go middlewares.WriteDataToDB()
-	}
-	go middlewares.CheckCurrentLimiting()
 	gin.SetMode(gin.DebugMode)
 	ginRouter := gin.Default()
+
+	ginRouter.Use(middlewares.TimeoutMiddleware())
 	ginRouter.Use(cors.Default())
+	ginRouter.Use(sentrygin.New(sentrygin.Options{
+		Repanic:         true,
+		WaitForDelivery: false,
+	}))
 	ginRouter.Use(middlewares.CurrentLimitingMiddleware())
+
 	ginRouter.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",

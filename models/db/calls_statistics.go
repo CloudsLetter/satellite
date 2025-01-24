@@ -15,4 +15,9 @@ type CallsStatistics struct {
 	Source      string `gorm:"not null;index:source_index"`
 	Destination string `gorm:"not null;index:destination_index"`
 	UserAgent   string `gorm:"not null"`
+	Country     string `gorm:"not null"`
+	Region      string `gorm:"not null"`
+	Province    string `gorm:"not null"`
+	City        string `gorm:"not null"`
+	ISP         string `gorm:"not null"`
 }
