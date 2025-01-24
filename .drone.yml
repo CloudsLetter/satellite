@@ -12,6 +12,15 @@ steps:
   commands:
     - docker build -t wojiuchigua/satellite:latest .
 
+- name: sentry
+  commands:
+    - SENTRY_AUTH_TOKEN=1939832c36ebbc72f6025db543c380df5c8ed4d11b6110d74da8604764489650
+    - SENTRY_ORG=cloudyun-aq
+    - SENTRY_PROJECT=satellite
+    - VERSION=`sentry-cli releases propose-version`
+    - sentry-cli releases new "$VERSION"
+    - sentry-cli releases set-commits --auto "$VERSION"
+    - sentry-cli releases finalize "$VERSION"
 
 - name: webhook
   commands:
