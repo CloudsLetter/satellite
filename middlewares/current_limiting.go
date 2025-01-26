@@ -4,7 +4,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"satellite/models/db"
-	"satellite/utilities"
 	"satellite/utilities/database"
 	"satellite/utilities/misc"
 	"strings"
@@ -31,7 +30,7 @@ func CurrentLimitingMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		utilities.GetGoroutinePool().Submit(
+		misc.GetGoroutinePool().Submit(
 			func() {
 				dataPool <- ginContext.Copy()
 			})

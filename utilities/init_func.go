@@ -15,7 +15,7 @@ func InitFunc() {
 	once.Do(func() {
 		initDatabase()
 		misc.InitIp2Region()
-		NewGoroutinePool(10, 1000, 1*time.Second)
+		misc.NewGoroutinePool(10, 1000, 1*time.Second)
 		initCheckCurrentLimiting()
 	})
 }
@@ -32,7 +32,7 @@ func initDatabase() {
 }
 func initCheckCurrentLimiting() {
 	for i := 0; i < 3; i++ {
-		GetGoroutinePool().Submit(middlewares.WriteDataToDB)
+		misc.GetGoroutinePool().Submit(middlewares.WriteDataToDB)
 	}
-	GetGoroutinePool().Submit(middlewares.CheckCurrentLimiting)
+	misc.GetGoroutinePool().Submit(middlewares.CheckCurrentLimiting)
 }
