@@ -62,8 +62,8 @@ func (gp *GoroutinePool) Submit(task Task) {
 	default:
 		if atomic.LoadInt32(&gp.CurrentWorker) < gp.MaxWorker {
 			gp.addWorker()
+			gp.TaskQueue <- task
 		}
-		gp.TaskQueue <- task
 	}
 }
 
