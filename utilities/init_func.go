@@ -25,7 +25,6 @@ func initDatabase() {
 	} else {
 		database.InitDB("host=postgres user=postgres password=88323095.zxc dbname=satellite port=5432 sslmode=disable TimeZone=Asia/Shanghai")
 		database.InitRedisDB0("redis:6379")
-
 	}
 	database.AutoMigrate(database.GetDBContext())
 }

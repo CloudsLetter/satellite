@@ -20,6 +20,23 @@ import (
 	"time"
 )
 
+// MotdHandler
+// @BasePath /api/v1
+// @Summary Get the message of the day from a Minecraft server
+// @Description Get the message of the day from a Minecraft server
+// @Tags motd
+// @Accept json
+// @Produce json
+// @Param host query string true "The host of the Minecraft server"
+// @Param port query int true "The port of the Minecraft server"
+// @Param type query int true "The type of the Minecraft server"
+// @Param raw query bool true "Whether to return the raw MOTD"
+// @Param desraw query bool true "Whether to return the raw description"
+// @Param anonymous query bool true "Whether to return anonymous players"
+// @Success 200 {object} respon.MotdResponse
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /motd [get]
 func MotdHandler(ginContext *gin.Context) {
 	if str := ginContext.GetHeader("Accept"); str != "application/json" {
 		ginContext.JSON(http.StatusBadRequest, gin.H{

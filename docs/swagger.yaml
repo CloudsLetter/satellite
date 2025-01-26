@@ -1,0 +1,210 @@
+definitions:
+  minecraft.Sample:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  respon.CallStatistics:
+    properties:
+      day_struct:
+        items:
+          properties:
+            count:
+              type: integer
+            day:
+              type: integer
+            month:
+              type: integer
+          type: object
+        type: array
+      hour_struct:
+        items:
+          properties:
+            count:
+              type: integer
+            day:
+              type: integer
+            hour:
+              type: integer
+          type: object
+        type: array
+      minute_struct:
+        items:
+          properties:
+            count:
+              type: integer
+            hour:
+              type: integer
+            minute:
+              type: integer
+          type: object
+        type: array
+      month_struct:
+        items:
+          properties:
+            count:
+              type: integer
+            month:
+              type: integer
+            year:
+              type: integer
+          type: object
+        type: array
+    type: object
+  respon.DescriptionRaw:
+    properties:
+      bold:
+        type: boolean
+      color:
+        type: string
+      depth:
+        type: integer
+      text:
+        type: string
+    type: object
+  respon.MotdResponse:
+    properties:
+      description:
+        type: string
+      description_raw:
+        items:
+          $ref: '#/definitions/respon.DescriptionRaw'
+        type: array
+      edition:
+        type: string
+      enforces_secure_chat:
+        type: boolean
+      extra:
+        type: string
+      favicon:
+        type: string
+      game_mode:
+        type: string
+      ipv4_port:
+        type: integer
+      ipv6_port:
+        type: integer
+      latency:
+        type: integer
+      loader:
+        type: string
+      map:
+        type: string
+      max_players:
+        type: integer
+      mine_craft_edition:
+        type: string
+      mine_craft_server_type:
+        type: string
+      mod_count:
+        type: integer
+      nintendo_limited:
+        type: boolean
+      online_players:
+        type: integer
+      players:
+        items:
+          $ref: '#/definitions/minecraft.Sample'
+        type: array
+      prevents_chat_reports:
+        type: boolean
+      protocol:
+        type: string
+      real_players:
+        type: integer
+      server_id:
+        type: integer
+      server_name:
+        type: string
+      version:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /call_statistics:
+    get:
+      consumes:
+      - application/json
+      description: Get the call statistics
+      parameters:
+      - description: The destination of the call
+        in: query
+        name: destination
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/respon.CallStatistics'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get the call statistics
+      tags:
+      - call_statistics
+  /motd:
+    get:
+      consumes:
+      - application/json
+      description: Get the message of the day from a Minecraft server
+      parameters:
+      - description: The host of the Minecraft server
+        in: query
+        name: host
+        required: true
+        type: string
+      - description: The port of the Minecraft server
+        in: query
+        name: port
+        required: true
+        type: integer
+      - description: The type of the Minecraft server
+        in: query
+        name: type
+        required: true
+        type: integer
+      - description: Whether to return the raw MOTD
+        in: query
+        name: raw
+        required: true
+        type: boolean
+      - description: Whether to return the raw description
+        in: query
+        name: desraw
+        required: true
+        type: boolean
+      - description: Whether to return anonymous players
+        in: query
+        name: anonymous
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/respon.MotdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get the message of the day from a Minecraft server
+      tags:
+      - motd
+swagger: "2.0"
