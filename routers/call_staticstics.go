@@ -17,6 +17,17 @@ import (
 )
 
 // CallStatisticsHandler is a handler for call statistics
+// @BasePath /api/v1
+// @Summary Get the call statistics
+// @Description Get the call statistics
+// @Tags call_statistics
+// @Accept json
+// @Produce json
+// @Param destination query string true "The destination of the call" Example: /ping
+// @Success 200 {object} respon.CallStatistics
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /call_statistics [get]
 func CallStatisticsHandler(ginContext *gin.Context) {
 	destination := ginContext.Query("destination")
 	if destination == "" {

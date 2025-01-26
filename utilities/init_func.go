@@ -6,6 +6,7 @@ import (
 	"satellite/utilities/database"
 	"satellite/utilities/misc"
 	"sync"
+	"time"
 )
 
 var once sync.Once
@@ -13,8 +14,9 @@ var once sync.Once
 func InitFunc() {
 	once.Do(func() {
 		initDatabase()
-		initCheckCurrentLimiting()
 		misc.InitIp2Region()
+		NewGoroutinePool(10, 1000, 1*time.Second)
+		initCheckCurrentLimiting()
 	})
 }
 func initDatabase() {
@@ -25,13 +27,12 @@ func initDatabase() {
 	} else {
 		database.InitDB("host=postgres user=postgres password=88323095.zxc dbname=satellite port=5432 sslmode=disable TimeZone=Asia/Shanghai")
 		database.InitRedisDB0("redis:6379")
-
 	}
 	database.AutoMigrate(database.GetDBContext())
 }
 func initCheckCurrentLimiting() {
 	for i := 0; i < 3; i++ {
-		go middlewares.WriteDataToDB()
+		GetGoroutinePool().Submit(middlewares.WriteDataToDB)
 	}
-	go middlewares.CheckCurrentLimiting()
+	GetGoroutinePool().Submit(middlewares.CheckCurrentLimiting)
 }

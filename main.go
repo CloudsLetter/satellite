@@ -5,7 +5,10 @@ import (
 	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"log"
+	"satellite/docs"
 	"satellite/middlewares"
 	"satellite/routers"
 	"satellite/utilities"
@@ -36,10 +39,13 @@ func main() {
 			"message": "pong",
 		})
 	})
-	v1 := ginRouter.Group("/v1")
+	docs.SwaggerInfo.BasePath = "/api/v1"
+	v1 := ginRouter.Group("/api/v1")
 	v1.GET("/motd", routers.MotdHandler)
 	v1.GET("/call_statistics", routers.CallStatisticsHandler)
 	v1.GET("/total_calls_sse", routers.TotalCallsSSE)
+	ginRouter.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
 	err := ginRouter.Run(":8080")
 	if err != nil {
 		log.Fatalln(err)

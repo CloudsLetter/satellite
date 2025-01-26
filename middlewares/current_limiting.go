@@ -4,6 +4,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"satellite/models/db"
+	"satellite/utilities"
 	"satellite/utilities/database"
 	"satellite/utilities/misc"
 	"strings"
@@ -29,9 +30,11 @@ func CurrentLimitingMiddleware() gin.HandlerFunc {
 			ginContext.Abort()
 			return
 		}
-		go func(ctx *gin.Context) {
-			dataPool <- ctx
-		}(ginContext.Copy())
+
+		utilities.GetGoroutinePool().Submit(
+			func() {
+				dataPool <- ginContext.Copy()
+			})
 
 		key := ginContext.ClientIP() + ginContext.Request.URL.Path
 		count, _ := currentLimiting.LoadOrStore(key, 0)
@@ -86,11 +89,14 @@ func WriteDataToDB() {
 }
 
 func CheckCurrentLimiting() {
-	for range ticker.C {
-		atomic.StoreInt32(&counts, 0)
-		currentLimiting.Range(func(key, value interface{}) bool {
-			currentLimiting.Delete(key)
-			return true
-		})
+	for {
+		select {
+		case <-ticker.C:
+			atomic.StoreInt32(&counts, 0)
+			currentLimiting.Range(func(key, value interface{}) bool {
+				currentLimiting.Delete(key)
+				return true
+			})
+		}
 	}
 }
