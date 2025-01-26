@@ -56,7 +56,7 @@ func WriteDataToDB() {
 				panic(ok)
 			}
 			currentTime := time.Now()
-			search, err := misc.GetIp2RegionSearcher().SearchByStr("223.67.46.159")
+			search, err := misc.GetIp2RegionSearcher().SearchByStr(ctx.ClientIP())
 			if err != nil {
 				sentry.CaptureException(err)
 			}

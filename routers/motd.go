@@ -1,16 +1,23 @@
 package routers
 
 import (
+	"bytes"
+	"context"
+	"encoding/gob"
+	"errors"
 	"github.com/getsentry/sentry-go"
 	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"net/http"
 	"satellite/models/minecraft"
 	"satellite/models/request"
 	"satellite/models/respon"
+	"satellite/utilities/database"
 	"satellite/utilities/misc"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func MotdHandler(ginContext *gin.Context) {
@@ -85,8 +92,45 @@ func MotdHandler(ginContext *gin.Context) {
 		})
 		return
 	}
-
 	comObj := respon.MotdResponse{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	val, err := database.GetRedisContext().Get(ctx, reqObj.Host+ginContext.Query("port")+ginContext.Query("type")+ginContext.Query("raw")+ginContext.Query("desraw")+ginContext.Query("anonymous")).Bytes()
+	if err != nil {
+		if !errors.Is(err, redis.Nil) {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("CallStatistics", "redis")
+				hub.CaptureException(err)
+			})
+			ginContext.JSON(http.StatusInternalServerError, gin.H{
+				"message": "internal error",
+			})
+			return
+		}
+	} else {
+		if val == nil {
+			ginContext.JSON(http.StatusOK, gin.H{
+				"message": "empty",
+			})
+			return
+		}
+
+		dec := gob.NewDecoder(bytes.NewReader(val))
+		if err := dec.Decode(&comObj); err != nil {
+			hub.WithScope(func(scope *sentry.Scope) {
+				scope.SetExtra("CallStatistics", "decode")
+				hub.CaptureException(err)
+			})
+			ginContext.JSON(http.StatusInternalServerError, gin.H{
+				"message": "internal error",
+			})
+			return
+		}
+		ginContext.JSON(http.StatusOK, comObj)
+		return
+	}
+
 	if reqObj.Type == 0 {
 		motdObj := minecraft.JavaMotdJson17{}
 		err = misc.GetMotdFromJavaEdition17(&motdObj, reqObj.Host, reqObj.Port)
@@ -261,6 +305,29 @@ func MotdHandler(ginContext *gin.Context) {
 	}
 
 	comObj.RealPlayers = len(comObj.Players)
+
+	buf := bytes.Buffer{}
+	enc := gob.NewEncoder(&buf)
+	if err = enc.Encode(comObj); err != nil {
+		hub.WithScope(func(scope *sentry.Scope) {
+			scope.SetExtra("gob", "encode")
+			hub.CaptureException(err)
+		})
+		ginContext.JSON(http.StatusInternalServerError, gin.H{
+			"message": "internal error",
+		})
+		return
+	}
+	if err = database.GetRedisContext().Set(ctx, reqObj.Host+ginContext.Query("port")+ginContext.Query("type")+ginContext.Query("raw")+ginContext.Query("desraw")+ginContext.Query("anonymous"), buf.Bytes(), 3*time.Minute).Err(); err != nil {
+		hub.WithScope(func(scope *sentry.Scope) {
+			scope.SetExtra("redis", "set")
+			hub.CaptureException(err)
+		})
+		ginContext.JSON(http.StatusInternalServerError, gin.H{
+			"message": "internal error",
+		})
+		return
+	}
 	ginContext.JSON(http.StatusOK, comObj)
 	return
 }
