@@ -15,7 +15,7 @@ func InitFunc() {
 	once.Do(func() {
 		initDatabase()
 		misc.InitIp2Region()
-		misc.NewGoroutinePool(10, 1000, 1*time.Second)
+		misc.NewGoroutinePool(10, 500, 1*time.Minute)
 		initCheckCurrentLimiting()
 	})
 }

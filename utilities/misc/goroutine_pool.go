@@ -38,7 +38,9 @@ func NewGoroutinePool(minWorker, maxWorker int32, idleTimeout time.Duration) *Go
 func (gp *GoroutinePool) addWorker() {
 	atomic.AddInt32(&gp.CurrentWorker, 1)
 	go func() {
+		timer := time.NewTimer(gp.IdleTimeout)
 		defer atomic.AddInt32(&gp.CurrentWorker, -1)
+		defer timer.Stop()
 		for {
 			select {
 			case task, ok := <-gp.TaskQueue:
@@ -49,7 +51,8 @@ func (gp *GoroutinePool) addWorker() {
 					task()
 					gp.WG.Done()
 				}
-			case <-time.After(gp.IdleTimeout):
+				timer.Reset(gp.IdleTimeout)
+			case <-timer.C:
 				if atomic.LoadInt32(&gp.CurrentWorker) > gp.MinWorker {
 					return
 				}
