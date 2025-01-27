@@ -12,8 +12,15 @@ import (
 	"satellite/models/respon"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
 
 // OfflineMessageDataId 宏定义
 var OfflineMessageDataId = []byte{0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78}
@@ -61,8 +68,10 @@ func ExtraRecursion(extra []minecraft.ExtraObjectOrString) string {
 // 获取java版1.7及以上版本的motd
 func GetMotdFromJavaEdition17(motd *minecraft.JavaMotdJson17, host string, port int) error {
 
-	buf := bytes.Buffer{}
-	resultBuf := bytes.Buffer{}
+	buf := bufPool.Get().(*bytes.Buffer)
+	resultBuf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	resultBuf.Reset()
 	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
 		return err
@@ -89,35 +98,49 @@ func GetMotdFromJavaEdition17(motd *minecraft.JavaMotdJson17, host string, port 
 	resultBuf.Write(append(packageLength, buf.Bytes()...))
 	_, err = conn.Write(resultBuf.Bytes())
 	if err != nil {
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
 		return err
 	}
 	startTime := time.Now().UnixMilli()
 
 	_, err = conn.Write([]byte{0x01, 0x00})
 	if err != nil {
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
 		return err
 	}
 	resBuf := bufio.NewReader(conn)
 	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
 		return err
 	}
 
 	// drop less data
 	_, err = binary.ReadUvarint(resBuf)
 	if err != nil {
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
 		return err
 	}
 	endTime := time.Now().UnixMilli()
 	motd.Latency = int(endTime - startTime)
 	packetType, _ := resBuf.ReadByte()
 	if bytes.Compare([]byte{packetType}, []byte{0x00}) != 0 {
-		panic("error response packet type")
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
+		return errors.New("error response packet type")
 	}
 	length, err := binary.ReadUvarint(resBuf)
 	if length < 10 {
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
 		return errors.New("error to small response")
 	} else if length > 700000 {
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
 		return errors.New("error to big response")
 	}
 	recBytes := make([]byte, length)
@@ -128,16 +151,21 @@ func GetMotdFromJavaEdition17(motd *minecraft.JavaMotdJson17, host string, port 
 	}
 	err = json.Unmarshal(recBytes, &motd)
 	if err != nil {
+		bufPool.Put(buf)
+		bufPool.Put(resultBuf)
 		log.Fatalln(err.Error())
 		return err
 	}
+	bufPool.Put(buf)
+	bufPool.Put(resultBuf)
 	return nil
 }
 
 // GetMotdFromBedrockEdition (string, int) error
 // 获取基岩版的motd
 func GetMotdFromBedrockEdition(motd *minecraft.BedrockMotd, host string, port int) error {
-	originBuf := bytes.Buffer{}
+	originBuf := bufPool.Get().(*bytes.Buffer)
+	originBuf.Reset()
 	conn, err := net.DialTimeout("udp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
 		return err
@@ -157,16 +185,19 @@ func GetMotdFromBedrockEdition(motd *minecraft.BedrockMotd, host string, port in
 	originBuf.Write(guidBuf)
 	_, err = conn.Write(originBuf.Bytes())
 	if err != nil {
+		bufPool.Put(originBuf)
 		return err
 	}
 	startTime := time.Now().UnixMilli()
 	resBuf := bufio.NewReader(conn)
 	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
+		bufPool.Put(originBuf)
 		return err
 	}
 	firstByte, _ := resBuf.ReadByte()
 	if bytes.Compare([]byte{firstByte}, []byte{0x1C}) != 0 {
+		bufPool.Put(originBuf)
 		return errors.New("error response packet type")
 	}
 	endTime := time.Now().UnixMilli()
@@ -174,19 +205,23 @@ func GetMotdFromBedrockEdition(motd *minecraft.BedrockMotd, host string, port in
 	//丢 18 byte数据
 	_, err = resBuf.Discard(16)
 	if err != nil {
+		bufPool.Put(originBuf)
 		return err
 	}
 	offlineMsg := make([]byte, 16)
 	_, err = resBuf.Read(offlineMsg)
 	if err != nil {
+		bufPool.Put(originBuf)
 		return err
 	}
 	if bytes.Compare(offlineMsg, OfflineMessageDataId) != 0 {
+		bufPool.Put(originBuf)
 		return errors.New("error response packet type")
 	}
 	length := make([]byte, 2)
 	_, err = resBuf.Read(length)
 	if err != nil {
+		bufPool.Put(originBuf)
 		return err
 	}
 	lengthR := binary.BigEndian.Uint16(length)
@@ -261,18 +296,19 @@ func GetMotdFromBedrockEdition(motd *minecraft.BedrockMotd, host string, port in
 			continue
 		}
 	}
+	bufPool.Put(originBuf)
 	return nil
 }
 
 func GetMotdFromJavaEdition16(motd *minecraft.JavaMotd16, host string, port int, gType int) error {
-
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
 	conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), 1*time.Second)
 	if err != nil {
+		bufPool.Put(buf)
 		return err
 	}
 	defer conn.Close()
-
-	buf := bytes.Buffer{}
 	if gType == 2 {
 		// 写入包id
 		buf.Write([]byte{0xFE, 0x01, 0xFA})
@@ -303,6 +339,7 @@ func GetMotdFromJavaEdition16(motd *minecraft.JavaMotd16, host string, port int,
 
 	_, err = conn.Write(buf.Bytes())
 	if err != nil {
+		bufPool.Put(buf)
 		return err
 	}
 	startTime := time.Now().UnixMilli()
@@ -311,12 +348,14 @@ func GetMotdFromJavaEdition16(motd *minecraft.JavaMotd16, host string, port int,
 	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	firstByte, err := resBuf.ReadByte()
 	if err != nil {
+		bufPool.Put(buf)
 		return err
 	}
 	endTime := time.Now().UnixMilli()
 	motd.Latency = int(endTime - startTime)
 
 	if bytes.Compare([]byte{firstByte}, []byte{0xFF}) != 0 {
+		bufPool.Put(buf)
 		return errors.New("error response packet type")
 	}
 	lengthByte := make([]byte, 2)
@@ -327,6 +366,7 @@ func GetMotdFromJavaEdition16(motd *minecraft.JavaMotd16, host string, port int,
 	for i := uint16(0); i < length; {
 		n, err := resBuf.Read(data[i:length])
 		if err != nil {
+			bufPool.Put(buf)
 			return err
 		}
 		i = i + uint16(n)
@@ -361,6 +401,7 @@ func GetMotdFromJavaEdition16(motd *minecraft.JavaMotd16, host string, port int,
 			}
 		}
 	}
+	bufPool.Put(buf)
 	return nil
 }
 
@@ -371,11 +412,12 @@ func GetMotdFromJavaVersion13(motd *minecraft.JavaMotd13, host string, port int)
 	}
 	defer conn.Close()
 
-	buf := bytes.Buffer{}
+	buf := bufPool.Get().(*bytes.Buffer)
 	// 写入包id
 	buf.Write([]byte{0xFE})
 	_, err = conn.Write(buf.Bytes())
 	if err != nil {
+		bufPool.Put(buf)
 		return err
 	}
 	startTime := time.Now().UnixMilli()
@@ -384,6 +426,7 @@ func GetMotdFromJavaVersion13(motd *minecraft.JavaMotd13, host string, port int)
 	err = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	firstByte, err := resBuf.ReadByte()
 	if err != nil {
+		bufPool.Put(buf)
 		return err
 	}
 	endTime := time.Now().UnixMilli()
@@ -394,11 +437,13 @@ func GetMotdFromJavaVersion13(motd *minecraft.JavaMotd13, host string, port int)
 	}
 	_, err = resBuf.Discard(4)
 	if err != nil {
+		bufPool.Put(buf)
 		return err
 	}
 	lengthByte := make([]byte, 2)
 	_, err = resBuf.Read(lengthByte)
 	if err != nil {
+		bufPool.Put(buf)
 		return err
 	}
 	strLength := binary.BigEndian.Uint16(lengthByte)
@@ -407,6 +452,7 @@ func GetMotdFromJavaVersion13(motd *minecraft.JavaMotd13, host string, port int)
 	for i := uint16(0); i < strLength+10; {
 		n, err := resBuf.Read(data[i : strLength+10])
 		if err != nil {
+			bufPool.Put(buf)
 			return err
 		}
 		i = i + uint16(n)
@@ -417,6 +463,7 @@ func GetMotdFromJavaVersion13(motd *minecraft.JavaMotd13, host string, port int)
 		if i == 0 {
 			motd.OnlinePlayers, err = strconv.Atoi(string(byteData))
 			if err != nil {
+				bufPool.Put(buf)
 				return err
 			}
 			continue
@@ -424,10 +471,12 @@ func GetMotdFromJavaVersion13(motd *minecraft.JavaMotd13, host string, port int)
 		if i == 1 {
 			motd.MaxPlayers, err = strconv.Atoi(string(byteData))
 			if err != nil {
+				bufPool.Put(buf)
 				return err
 			}
 			continue
 		}
 	}
+	bufPool.Put(buf)
 	return nil
 }
