@@ -29,7 +29,7 @@ import (
 // @Produce json
 // @Param host query string true "The host of the Minecraft server"
 // @Param port query int true "The port of the Minecraft server"
-// @Param type query int true "The type of the Minecraft server"
+// @Param type query int true "The type of the Minecraft server (0: Java 1.7+, 1: Bedrock, 2: Java 1.6, 3: Java 1.4, 4: Java 1.3)"
 // @Param raw query bool true "Whether to return the raw MOTD"
 // @Param desraw query bool true "Whether to return the raw description"
 // @Param anonymous query bool true "Whether to return anonymous players"
