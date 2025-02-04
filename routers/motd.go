@@ -178,7 +178,7 @@ func MotdHandler(ginContext *gin.Context) {
 			PreventsChatReports: motdObj.PreventsChatReports,
 			Latency:             motdObj.Latency,
 		}
-		comObj.Edition = "java"
+		comObj.Edition = "Java 1.7+"
 
 		if motdObj.Description.DescriptionString != "" {
 			comObj.Description = motdObj.Description.DescriptionString
@@ -258,7 +258,7 @@ func MotdHandler(ginContext *gin.Context) {
 		comObj.Ipv4Port = motdObj.IPv4Port
 		comObj.Ipv6Port = motdObj.IPv6Port
 		comObj.Extra = motdObj.Extra
-		comObj.Edition = "bedrock"
+		comObj.Edition = "Bedrock"
 		comObj.Latency = motdObj.Latency
 	}
 
@@ -286,7 +286,7 @@ func MotdHandler(ginContext *gin.Context) {
 		comObj.OnlinePlayers = motdObj.OnlinePlayers
 		comObj.MaxPlayers = motdObj.MaxPlayers
 		comObj.Latency = motdObj.Latency
-		comObj.Edition = "java"
+		comObj.Edition = "Java 1.4+"
 	}
 
 	if reqObj.Type == 4 {
@@ -311,7 +311,7 @@ func MotdHandler(ginContext *gin.Context) {
 		comObj.OnlinePlayers = motdObj.OnlinePlayers
 		comObj.MaxPlayers = motdObj.MaxPlayers
 		comObj.Latency = motdObj.Latency
-		comObj.Edition = "java"
+		comObj.Edition = "Java Beta3+"
 	}
 
 	if reqObj.Type > 4 {
