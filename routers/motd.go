@@ -208,7 +208,9 @@ func MotdHandler(ginContext *gin.Context) {
 
 			}
 		}
-
+		if motdObj.Modinfo.ModList != nil {
+			comObj.ModList = motdObj.Modinfo.ModList
+		}
 		if motdObj.Players.Sample != nil {
 			for i, v := range motdObj.Players.Sample {
 				//if i >= 10 {

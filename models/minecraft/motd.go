@@ -18,11 +18,8 @@ type JavaMotdJson17 struct {
 	} `json:"players"`
 	Description DescriptionObjectOrString `json:"description,omitempty"`
 	Modinfo     struct {
-		Type    string `json:"type,omitempty"`
-		ModList []struct {
-			Modid   string `json:"modid,omitempty"`
-			Version string `json:"version,omitempty"`
-		} `json:"modList,omitempty"`
+		Type    string    `json:"type,omitempty"`
+		ModList []ModLisS `json:"modList,omitempty"`
 	} `json:"modinfo,omitempty"`
 	Favicon             string `json:"favicon,omitempty"`
 	EnforcesSecureChat  bool   `json:"enforcesSecureChat,omitempty,omitempty"`
@@ -30,6 +27,10 @@ type JavaMotdJson17 struct {
 	Latency             int    `json:"latency,omitempty"`
 }
 
+type ModLisS struct {
+	Modid   string `json:"modid,omitempty"`
+	Version string `json:"version,omitempty"`
+}
 type Sample struct {
 	Name string `json:"name,omitempty"`
 	Id   string `json:"id,omitempty"`
