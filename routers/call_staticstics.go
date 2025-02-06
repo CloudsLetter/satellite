@@ -84,7 +84,7 @@ func CallStatisticsHandler(ginContext *gin.Context) {
 
 	var err error
 	today := time.Now()
-	if err = database.GetDBContext().Model(&db.CallsStatistics{}).Select("hour, minute, COUNT(*) AS count").Where("(hour = ? AND minute >= ?) OR (hour = ? AND minute <= ?)", today.Add(-time.Duration(1)*time.Hour).Hour(), today.Add(-time.Duration(1)*time.Hour).Minute(), today.Add(0).Hour(), today.Add(0).Minute()).Where("destination = ?", destination).Group("hour,minute").Order("hour,minute").Find(&resObj.MinuteStruct).Error; err != nil {
+	if err = database.GetDBContext().Model(&db.CallsStatistics{}).Select("hour, minute, COUNT(*) AS count").Where("day = ?", today.Add(-time.Duration(1)*time.Hour).Day()).Where("(hour = ? AND minute >= ?) OR (hour = ? AND minute <= ?)", today.Add(-time.Duration(1)*time.Hour).Hour(), today.Add(-time.Duration(1)*time.Hour).Minute(), today.Add(0).Hour(), today.Add(0).Minute()).Where("destination = ?", destination).Group("hour,minute").Order("hour,minute").Find(&resObj.MinuteStruct).Error; err != nil {
 		hub.WithScope(func(scope *sentry.Scope) {
 			scope.SetExtra("CallStatistics", "today")
 			hub.CaptureException(err)
