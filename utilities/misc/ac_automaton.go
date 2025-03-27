@@ -10,7 +10,7 @@ var acAutomaton *ACAutomaton
 type TrieNode struct {
 	children map[rune]*TrieNode
 	fail     *TrieNode
-	output   []string
+	output   map[string]struct{}
 }
 
 type ACAutomaton struct {
@@ -21,7 +21,7 @@ func NewTrieNode() *TrieNode {
 	return &TrieNode{
 		children: make(map[rune]*TrieNode),
 		fail:     nil,
-		output:   []string{},
+		output:   make(map[string]struct{}),
 	}
 }
 
@@ -37,12 +37,7 @@ func (ac *ACAutomaton) Insert(pattern string) {
 		}
 		node = node.children[ch]
 	}
-	for _, existing := range node.output {
-		if existing == pattern {
-			return
-		}
-	}
-	node.output = append(node.output, pattern)
+	node.output[pattern] = struct{}{}
 }
 
 func (ac *ACAutomaton) Build() {
@@ -69,7 +64,9 @@ func (ac *ACAutomaton) Build() {
 			if failNode == nil {
 				child.fail = ac.root
 			}
-			child.output = append(child.output, child.fail.output...)
+			for pattern := range child.fail.output {
+				child.output[pattern] = struct{}{}
+			}
 			queue = append(queue, child)
 		}
 	}
@@ -78,7 +75,8 @@ func (ac *ACAutomaton) Build() {
 func (ac *ACAutomaton) Search(text string) map[string][]int {
 	result := make(map[string][]int)
 	node := ac.root
-	for i, ch := range text {
+	runeText := []rune(text) // 处理 Unicode 字符正确索引
+	for i, ch := range runeText {
 		for node != ac.root && node.children[ch] == nil {
 			node = node.fail
 		}
@@ -87,12 +85,16 @@ func (ac *ACAutomaton) Search(text string) map[string][]int {
 		} else {
 			node = ac.root
 		}
-		for _, pattern := range node.output {
-			result[pattern] = append(result[pattern], i-len(pattern)+1)
+		for pattern := range node.output {
+			startIndex := i - len([]rune(pattern)) + 1
+			if startIndex >= 0 {
+				result[pattern] = append(result[pattern], startIndex)
+			}
 		}
 	}
 	return result
 }
+
 func InitACAutomaton() {
 	ac := NewACAutomaton()
 	wordArr := strings.Split(resources.GetSensitiveWord(), "\n")
