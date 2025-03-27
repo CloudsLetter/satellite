@@ -26,7 +26,7 @@ func InitDB(dsn string) {
 }
 
 func AutoMigrate(dbc *gorm.DB) {
-	err := dbc.AutoMigrate(&db.CallsStatistics{})
+	err := dbc.AutoMigrate(&db.CallsStatistics{}, &db.SensitiveWords{}, &db.ClipBoard{})
 	if err != nil {
 		panic(err)
 	}

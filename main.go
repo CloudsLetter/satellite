@@ -11,6 +11,7 @@ import (
 	"satellite/docs"
 	"satellite/middlewares"
 	"satellite/routers"
+	clipboard "satellite/routers/clipboard"
 	"satellite/utilities"
 )
 
@@ -44,7 +45,14 @@ func main() {
 	v1.GET("/motd", routers.MotdHandler)
 	v1.GET("/call_statistics", routers.CallStatisticsHandler)
 	v1.GET("/total_calls_sse", routers.TotalCallsSSE)
+	v1.POST("/sensitive", routers.Sensitive)
 	ginRouter.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
+	clipboardRouter := v1.Group("/clipboard")
+
+	clipboardRouter.GET("/query", clipboard.Query)
+	clipboardRouter.POST("/add", clipboard.Add)
+	clipboardRouter.DELETE("/remove", clipboard.Remove)
 
 	err := ginRouter.Run(":8080")
 	if err != nil {

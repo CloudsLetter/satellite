@@ -16,6 +16,7 @@ func InitFunc() {
 		initDatabase()
 		misc.InitIp2Region()
 		misc.NewGoroutinePool(10, 500, 1*time.Minute)
+		misc.InitACAutomaton()
 		initCheckCurrentLimiting()
 	})
 }
@@ -28,11 +29,16 @@ func initDatabase() {
 		database.InitDB("host=postgres user=postgres password=88323095.zxc dbname=satellite port=5432 sslmode=disable TimeZone=Asia/Shanghai")
 		database.InitRedisDB0("redis:6379")
 	}
-	database.AutoMigrate(database.GetDBContext())
 }
 func initCheckCurrentLimiting() {
 	for i := 0; i < 3; i++ {
-		misc.GetGoroutinePool().Submit(middlewares.WriteDataToDB)
+		err := misc.GetGoroutinePool().Submit(middlewares.WriteDataToDB)
+		if err != nil {
+			return
+		}
 	}
-	misc.GetGoroutinePool().Submit(middlewares.CheckCurrentLimiting)
+	err := misc.GetGoroutinePool().Submit(middlewares.CheckCurrentLimiting)
+	if err != nil {
+		return
+	}
 }
