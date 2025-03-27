@@ -349,6 +349,16 @@ func MotdHandler(ginContext *gin.Context) {
 		})
 		return
 	}
+
+	if matches := misc.GetACAutomaton().Search(comObj.Description); len(matches) > 0 {
+
+		ginContext.JSON(http.StatusBadRequest, gin.H{
+			"message":         "sensitive words detected",
+			"sensitive_words": matches,
+		})
+		return
+	}
+
 	ginContext.JSON(http.StatusOK, comObj)
 	return
 }
