@@ -22,7 +22,7 @@ func InitDB(dsn string) {
 	sqlDB.SetMaxOpenConns(4)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 	dbContext = dbc
-
+	AutoMigrate(dbc)
 }
 
 func AutoMigrate(dbc *gorm.DB) {

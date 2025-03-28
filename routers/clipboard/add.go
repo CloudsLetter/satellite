@@ -5,15 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
+	"satellite/macro"
 	"satellite/models/db"
 	"satellite/models/request"
 	"satellite/utilities/database"
 	"satellite/utilities/misc"
-	"strconv"
 	"time"
 )
-
-// TODO 待设置密码
 
 func Add(ginContext *gin.Context) {
 	if str := ginContext.GetHeader("Accept"); str != "application/json" {
@@ -30,30 +28,26 @@ func Add(ginContext *gin.Context) {
 		})
 		return
 	}
-	timestampMill, err := strconv.ParseInt(clipboardObj.Expire, 10, 64)
-	if err != nil {
-		ginContext.JSON(http.StatusBadRequest, gin.H{
-			"message": "Parameter Error",
-		})
-		return
-	}
 
 	if matches := misc.GetACAutomaton().Search(clipboardObj.Title); len(matches) > 0 {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
-			"message": "Sensitive Words Detected in Title",
+			"status_code": macro.SensitiveWordsDetected,
+			"message":     "Sensitive Words Detected in Title",
 		})
 		return
 	}
 
 	if matches := misc.GetACAutomaton().Search(clipboardObj.Content); len(matches) > 0 {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
-			"message": "Sensitive Words Detected in Content",
+			"status_code": macro.SensitiveWordsDetected,
+			"message":     "Sensitive Words Detected in Content",
 		})
 		return
 	}
 
 	clipboardRes := db.ClipBoard{}
-	err = database.GetDBContext().Model(&db.ClipBoard{}).Where("title = ?", clipboardObj.Title).First(&clipboardRes).Error
+
+	err := database.GetDBContext().Model(&db.ClipBoard{}).Where("title = ?", clipboardObj.Title).First(&clipboardRes).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		ginContext.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Internal Error",
@@ -61,7 +55,7 @@ func Add(ginContext *gin.Context) {
 		return
 	}
 
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+	if err == nil {
 		if time.Now().After(clipboardRes.Expire) {
 			if err = database.GetDBContext().Delete(&clipboardRes).Error; err != nil {
 				ginContext.JSON(http.StatusInternalServerError, gin.H{
@@ -78,10 +72,12 @@ func Add(ginContext *gin.Context) {
 	}
 
 	err = database.GetDBContext().Create(&db.ClipBoard{
-		Title:    clipboardObj.Title,
-		Content:  clipboardObj.Content,
-		Expire:   time.UnixMilli(timestampMill),
-		Snapchat: clipboardObj.Snapchat,
+		Title:              clipboardObj.Title,
+		Content:            clipboardObj.Content,
+		Expire:             time.Now().AddDate(0, 0, clipboardObj.Expire),
+		Snapchat:           clipboardObj.Snapchat,
+		Password:           clipboardObj.Password,
+		SyntaxHighlighting: clipboardObj.SyntaxHighlighting,
 	}).Error
 	if err != nil {
 		ginContext.JSON(http.StatusInternalServerError, gin.H{

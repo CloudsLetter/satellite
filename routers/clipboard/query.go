@@ -11,8 +11,9 @@ import (
 
 func Query(ginContext *gin.Context) {
 	title := ginContext.Query("title")
+	password := ginContext.Query("password")
 	clipBoardRes := db.ClipBoard{}
-	err := database.GetDBContext().Model(&db.ClipBoard{}).Where("title = ?", title).Select("title, content, syntax_highlighting, expire, snapchat").First(&clipBoardRes).Error
+	err := database.GetDBContext().Model(&db.ClipBoard{}).Where("title = ?", title).First(&clipBoardRes).Error
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		ginContext.JSON(404, gin.H{
 			"message": "Not Found",
@@ -51,6 +52,17 @@ func Query(ginContext *gin.Context) {
 		})
 		return
 	}
+	if clipBoardRes.Password != "" && password == "" {
+		ginContext.JSON(403, gin.H{
+			"message": "Password Required",
+		})
+	}
 
+	if clipBoardRes.Password != password {
+		ginContext.JSON(403, gin.H{
+			"message": "Password Error",
+		})
+		return
+	}
 	ginContext.JSON(200, clipBoardRes)
 }
