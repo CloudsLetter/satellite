@@ -26,9 +26,16 @@ func main() {
 	}
 	gin.SetMode(gin.DebugMode)
 	ginRouter := gin.Default()
-
+	ginRouter.Use(cors.New(cors.Config{
+		AllowOrigins:  []string{"*"},
+		AllowMethods:  []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:  []string{"Origin", "Content-Length", "Content-Type", "Accept"},
+		ExposeHeaders: []string{""},
+		//AllowCredentials: true, 需指定具体的域名
+		MaxAge: 12 * 3600,
+	}))
 	ginRouter.Use(middlewares.TimeoutMiddleware())
-	ginRouter.Use(cors.Default())
+
 	ginRouter.Use(sentrygin.New(sentrygin.Options{
 		Repanic:         true,
 		WaitForDelivery: false,

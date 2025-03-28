@@ -3,6 +3,7 @@ package routers
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"satellite/macro"
 	"satellite/models/request"
 	"satellite/utilities/misc"
 )
@@ -24,7 +25,8 @@ import (
 func Sensitive(ginContext *gin.Context) {
 	if str := ginContext.GetHeader("Accept"); str != "application/json" {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
-			"message": "allow application/json only",
+			"status_code": macro.AcceptApplicationJsonOnly,
+			"message":     "allow application/json only",
 		})
 		return
 	}
@@ -33,14 +35,16 @@ func Sensitive(ginContext *gin.Context) {
 
 	if err := ginContext.ShouldBindJSON(&resObj); err != nil {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
-			"message": "Missing Parameter",
+			"status_code": macro.MissingParameter,
+			"message":     "Missing Parameter",
 		})
 		return
 	}
 
 	if matches := misc.GetACAutomaton().Search(resObj.Keywords); len(matches) > 0 {
 
-		ginContext.JSON(http.StatusBadRequest, gin.H{
+		ginContext.JSON(http.StatusOK, gin.H{
+			"status_code":     macro.SensitiveWordsDetected,
 			"message":         "Sensitive Words Detected",
 			"sensitive_words": matches,
 		})
@@ -48,7 +52,8 @@ func Sensitive(ginContext *gin.Context) {
 	}
 
 	ginContext.JSON(http.StatusOK, gin.H{
-		"message": "No Sensitive Words Detected",
+		"status_code": macro.NoSensitiveWordsDetected,
+		"message":     "No Sensitive Words Detected",
 	})
 	return
 

@@ -63,11 +63,28 @@ func WriteDataToDB() {
 				sentry.CaptureException(err)
 			}
 			arr := strings.Split(search, "|")
-			country := arr[0]
-			region := arr[1]
-			province := arr[2]
-			city := arr[3]
-			isp := arr[4]
+			country := ""
+			region := ""
+			province := ""
+			city := ""
+			isp := ""
+
+			if len(arr) > 0 {
+				country = arr[0]
+			}
+			if len(arr) > 1 {
+				region = arr[1]
+			}
+			if len(arr) > 2 {
+				province = arr[2]
+			}
+			if len(arr) > 3 {
+				city = arr[3]
+			}
+			if len(arr) > 4 {
+				isp = arr[4]
+			}
+
 			database.GetDBContext().Create(&db.CallsStatistics{
 				Source:      ctx.ClientIP(),
 				Destination: ctx.Request.URL.Path,
