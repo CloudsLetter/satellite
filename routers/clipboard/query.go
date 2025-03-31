@@ -25,6 +25,7 @@ func Query(ginContext *gin.Context) {
 		})
 		return
 	}
+	database.GetDBContext().Model(&db.ClipBoard{}).Where("title = ?", title).Update("read", clipBoardRes.Read+1)
 
 	if clipBoardRes.Snapchat && clipBoardRes.Read > 1 {
 		// delete this record
@@ -65,6 +66,5 @@ func Query(ginContext *gin.Context) {
 		return
 	}
 
-	database.GetDBContext().Model(&db.ClipBoard{}).Where("title = ?", title).Update("read", clipBoardRes.Read+1)
 	ginContext.JSON(200, clipBoardRes)
 }
