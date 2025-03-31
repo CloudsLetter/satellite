@@ -12,6 +12,7 @@ type ClipBoard struct {
 	Content            string    `json:"content"`
 	SyntaxHighlighting string    `json:"syntax_highlighting"`
 	Expire             time.Time `json:"expire"`
+	Read               int       `json:"read"`
 	Snapchat           bool      `json:"snapchat"`
 	Password           string    `json:"-"`
 }

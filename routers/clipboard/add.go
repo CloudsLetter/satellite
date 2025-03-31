@@ -89,7 +89,7 @@ func Add(ginContext *gin.Context) {
 		})
 		return
 	}
-	ginContext.JSON(http.StatusOK, gin.H{
+	ginContext.JSON(http.StatusCreated, gin.H{
 		"message": "Success",
 	})
 	return
