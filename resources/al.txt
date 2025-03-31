@@ -2311,7 +2311,6 @@ KeFu
 私服
 wg
 外挂
-&
 ㄅ
 ㄆ
 ㄇ
@@ -5195,7 +5194,6 @@ K药
 戒急用忍
 干比
 臭尼姑
-&
 新闻出版署
 双十
 tai wan
@@ -45873,7 +45871,6 @@ sm
 骆海坚
 曹政
 外挂
-&
 ㄅ
 ㄆ
 ㄇ
@@ -46375,16 +46372,12 @@ saobi
 sb
 SEX
 sex
-
 SHIT
 shit
-simple
 SUCK
 sucker
 svdc
-System
 taip
-TEST
 The9
 The9City
 tibetalk
