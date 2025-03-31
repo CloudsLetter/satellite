@@ -29,7 +29,9 @@ func Add(ginContext *gin.Context) {
 		return
 	}
 
-	if matches := misc.GetACAutomaton().Search(clipboardObj.Title); len(matches) > 0 {
+	matches := misc.GetACAutomaton().Search(clipboardObj.Title)
+	delete(matches, "")
+	if len(matches) > 0 {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
 			"status_code": macro.SensitiveWordsDetected,
 			"message":     "Sensitive Words Detected in Title",
@@ -37,7 +39,9 @@ func Add(ginContext *gin.Context) {
 		return
 	}
 
-	if matches := misc.GetACAutomaton().Search(clipboardObj.Content); len(matches) > 0 {
+	matches = misc.GetACAutomaton().Search(clipboardObj.Content)
+	delete(matches, "")
+	if len(matches) > 0 {
 		ginContext.JSON(http.StatusBadRequest, gin.H{
 			"status_code": macro.SensitiveWordsDetected,
 			"message":     "Sensitive Words Detected in Content",

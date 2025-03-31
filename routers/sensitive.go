@@ -41,8 +41,9 @@ func Sensitive(ginContext *gin.Context) {
 		return
 	}
 
-	if matches := misc.GetACAutomaton().Search(resObj.Keywords); len(matches) > 0 {
-
+	matches := misc.GetACAutomaton().Search(resObj.Keywords)
+	delete(matches, "")
+	if len(matches) > 0 {
 		ginContext.JSON(http.StatusOK, gin.H{
 			"status_code":     macro.SensitiveWordsDetected,
 			"message":         "Sensitive Words Detected",
