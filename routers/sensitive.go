@@ -56,5 +56,4 @@ func Sensitive(ginContext *gin.Context) {
 		"message":     "No Sensitive Words Detected",
 	})
 	return
-
 }
