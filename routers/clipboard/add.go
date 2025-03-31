@@ -82,6 +82,7 @@ func Add(ginContext *gin.Context) {
 		Snapchat:           clipboardObj.Snapchat,
 		Password:           clipboardObj.Password,
 		SyntaxHighlighting: clipboardObj.SyntaxHighlighting,
+		Read:               0,
 	}).Error
 	if err != nil {
 		ginContext.JSON(http.StatusInternalServerError, gin.H{
